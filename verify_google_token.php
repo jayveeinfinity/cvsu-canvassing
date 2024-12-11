@@ -1,31 +1,44 @@
 <?php
-require 'vendor/autoload.php';
+    require_once __DIR__ . '/vendor/autoload.php';
 
-function verifyGoogleToken($idToken) {
-    $client = new Google_Client(['client_id' => '1066326778049-oltq050ct12mcija02gkdd6ojcpqc01q.apps.googleusercontent.com']);
-    $payload = $client->verifyIdToken($idToken);
+    use Google\Client;
+    use Google\Service\Oauth2;
 
-    if ($payload) {
+    $clientId = '1066326778049-oltq050ct12mcija02gkdd6ojcpqc01q.apps.googleusercontent.com';
+    $clientSecret = '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';
+
+    $client = new Client();
+    $client->setClientId($clientId);
+    $client->setClientSecret($clientSecret);
+    $client->setRedirectUri('http://localhost/cvsu-canvassing/callback.php');
+    $client->setScopes(Oauth2::USERINFO_EMAIL);
+
+    echo $client->createAuthUrl();
+    exit;
+
+    $token = $_POST['idToken'];
+
+    $data = [];
+
+    try {
+        $payload = $client->verifyIdToken($token);
+        if (!$payload) {
+            $data = [
+                'status' => 'error',
+                'message' => 'Invalid token'
+            ];
+        }
         $userId = $payload['sub'];
         $email = $payload['email'];
         $name = $payload['name'];
-        // Use this data to create or login the user
-        return ['userId' => $userId, 'email' => $email, 'name' => $name];
-    } else {
-        return false;
+        $data = [
+            'userId' => $userId, 'email' => $email, 'name' => $name
+        ];
+    } catch (Exception $e) {
+        $data = [
+            'error' => 'Error: ' . $e->getMessage()
+        ];
     }
-}
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $idToken = $input['id_token'] ?? '';
-    $userData = verifyGoogleToken($idToken);
-
-    if ($userData) {
-        // Check if user exists in DB, otherwise register
-        echo json_encode(['status' => 'success', 'user' => $userData]);
-    } else {
-        echo json_encode(['status' => 'error', 'message' => 'Invalid token']);
-    }
-}
+    echo json_encode($data);
 ?>
